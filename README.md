@@ -6,9 +6,9 @@ Rel Chats emphasizes privacy, personalization, and dynamic theming powered by Ma
 ## Screenshots
 
 <div style="display: flex; justify-content: space-around;">
-  <img src="./assets/screenshots/ss1.png" alt="" width="200">
-  <img src="./assets/screenshots/ss2.png" alt="" width="200">
   <img src="./assets/screenshots/ss3.png" alt="" width="200">
+  <img src="./assets/screenshots/ss2.png" alt="" width="200">
+  <img src="./assets/screenshots/ss1.png" alt="" width="200">
 </div>
 
 ## Contributing
