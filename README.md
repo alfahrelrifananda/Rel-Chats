@@ -18,5 +18,3 @@ Rel Chats emphasizes privacy, personalization, and dynamic theming powered by Ma
 3. Follow the established file structure
 4. Add proper documentation
 5. Submit a pull request
-
----
