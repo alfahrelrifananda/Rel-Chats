@@ -21,20 +21,75 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
   bool _isConfigured = false;
   String? _testResult;
   bool? _testSuccess;
+  String? _selectedModelVersion;
+
+  // Model version options
+  final Map<AIModel, List<ModelVersion>> _modelVersions = {
+    AIModel.chatgpt: [
+      ModelVersion('gpt-4o', 'GPT-4o', 'Most capable, multimodal'),
+      ModelVersion('gpt-4o-mini', 'GPT-4o Mini', 'Affordable and fast'),
+      ModelVersion('gpt-4-turbo', 'GPT-4 Turbo', 'Previous generation'),
+      ModelVersion('gpt-3.5-turbo', 'GPT-3.5 Turbo', 'Fast and economical'),
+    ],
+    AIModel.claude: [
+      ModelVersion(
+        'claude-sonnet-4-20250514',
+        'Claude Sonnet 4',
+        'Most intelligent',
+      ),
+      ModelVersion(
+        'claude-3-5-sonnet-20241022',
+        'Claude 3.5 Sonnet',
+        'Balanced performance',
+      ),
+      ModelVersion(
+        'claude-3-5-haiku-20241022',
+        'Claude 3.5 Haiku',
+        'Fast and affordable',
+      ),
+      ModelVersion(
+        'claude-3-opus-20240229',
+        'Claude 3 Opus',
+        'Previous flagship',
+      ),
+    ],
+    AIModel.gemini: [
+      ModelVersion(
+        'gemini-2.0-flash-exp',
+        'Gemini 2.0 Flash',
+        'Experimental, fastest',
+      ),
+      ModelVersion('gemini-1.5-pro', 'Gemini 1.5 Pro', 'Best quality'),
+      ModelVersion(
+        'gemini-1.5-flash',
+        'Gemini 1.5 Flash',
+        'Fast and efficient',
+      ),
+      ModelVersion('gemini-1.0-pro', 'Gemini 1.0 Pro', 'Stable version'),
+    ],
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadSavedApiKey();
+    _loadSavedConfiguration();
   }
 
-  Future<void> _loadSavedApiKey() async {
+  Future<void> _loadSavedConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     final savedKey = prefs.getString('${widget.model.name}_api_key');
+    final savedVersion = prefs.getString('${widget.model.name}_model_version');
+
     if (savedKey != null && savedKey.isNotEmpty) {
       setState(() {
         _apiKeyController.text = savedKey;
+        _selectedModelVersion =
+            savedVersion ?? _modelVersions[widget.model]?.first.id;
         _isConfigured = true;
+      });
+    } else {
+      setState(() {
+        _selectedModelVersion = _modelVersions[widget.model]?.first.id;
       });
     }
   }
@@ -119,7 +174,7 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
               'content-type': 'application/json',
             },
             body: jsonEncode({
-              'model': 'claude-3-haiku-20240307',
+              'model': _selectedModelVersion ?? 'claude-3-5-sonnet-20241022',
               'max_tokens': 10,
               'messages': [
                 {'role': 'user', 'content': 'Hi'},
@@ -136,10 +191,11 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
 
   Future<bool> _testGemini() async {
     try {
+      final modelId = _selectedModelVersion ?? 'gemini-1.5-pro';
       final response = await http
           .post(
             Uri.parse(
-              'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${_apiKeyController.text}',
+              'https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent?key=${_apiKeyController.text}',
             ),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
@@ -168,6 +224,10 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
       '${widget.model.name}_api_key',
       _apiKeyController.text,
     );
+    await prefs.setString(
+      '${widget.model.name}_model_version',
+      _selectedModelVersion!,
+    );
 
     setState(() {
       _isConfigured = true;
@@ -193,9 +253,11 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
   Future<void> _removeConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('${widget.model.name}_api_key');
+    await prefs.remove('${widget.model.name}_model_version');
 
     setState(() {
       _apiKeyController.clear();
+      _selectedModelVersion = _modelVersions[widget.model]?.first.id;
       _isConfigured = false;
       _testResult = null;
       _testSuccess = null;
@@ -215,6 +277,7 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final versions = _modelVersions[widget.model] ?? [];
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -300,6 +363,84 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
                   ],
                 ),
               ),
+
+            // Model Version Section
+            Text(
+              'Model Version',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select the model version you want to use',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Model Version Dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedModelVersion,
+              decoration: InputDecoration(
+                labelText: 'Model Version',
+                prefixIcon: Icon(
+                  Icons.psychology_rounded,
+                  color: widget.model.color,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: colorScheme.outline),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: colorScheme.outline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: widget.model.color, width: 2),
+                ),
+                filled: true,
+                fillColor: colorScheme.surfaceContainerLow,
+              ),
+              items: versions.map((version) {
+                return DropdownMenuItem(
+                  value: version.id,
+                  child: Text(
+                    version.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedModelVersion = value;
+                  _testResult = null;
+                  _testSuccess = null;
+                });
+              },
+            ),
+
+            // Show selected model description
+            if (_selectedModelVersion != null) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: Text(
+                  versions
+                      .firstWhere((v) => v.id == _selectedModelVersion)
+                      .description,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 32),
 
             // API Key Section
             Text(
@@ -547,8 +688,9 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
                     Text(
                       '• Your API key is stored locally on your device\n'
                       '• Never share your API key with others\n'
-                      '• You can change or remove it anytime\n'
+                      '• You can change model version or API key anytime\n'
                       '• API usage may incur costs from the provider\n'
+                      '• Different models have different pricing\n'
                       '• Test connection verifies your key validity',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
@@ -564,4 +706,13 @@ class _ModelSetupPageState extends State<ModelSetupPage> {
       ),
     );
   }
+}
+
+// Helper class for model versions
+class ModelVersion {
+  final String id;
+  final String name;
+  final String description;
+
+  ModelVersion(this.id, this.name, this.description);
 }
