@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'welcome_page.dart';
+import 'home_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,16 +17,27 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isDarkMode = false;
+  bool _isLoading = true;
+  bool _hasCompletedOnboarding = false;
 
   @override
   void initState() {
     super.initState();
-    _loadThemePreference();
+    _loadPreferences();
   }
 
-  Future<void> _loadThemePreference() async {
+  Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _isDarkMode = prefs.getBool('isDarkMode') ?? false);
+    final brightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+
+    setState(() {
+      _hasCompletedOnboarding =
+          prefs.getBool('hasCompletedOnboarding') ?? false;
+      _isDarkMode =
+          prefs.getBool('isDarkMode') ?? (brightness == Brightness.dark);
+      _isLoading = false;
+    });
   }
 
   Future<void> _toggleTheme() async {
@@ -36,6 +48,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
         const fallbackSeed = Color(0xFF6366F1);
@@ -94,10 +112,12 @@ class _MyAppState extends State<MyApp> {
           theme: buildTheme(lightScheme),
           darkTheme: buildTheme(darkScheme),
           themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: WelcomePage(
-            isDarkMode: _isDarkMode,
-            onThemeToggle: _toggleTheme,
-          ),
+          home: _hasCompletedOnboarding
+              ? HomePage(isDarkMode: _isDarkMode, onThemeToggle: _toggleTheme)
+              : WelcomePage(
+                  isDarkMode: _isDarkMode,
+                  onThemeToggle: _toggleTheme,
+                ),
         );
       },
     );
