@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'model_setup_page.dart';
 
@@ -16,32 +17,105 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+  late PageController _pageController;
+  late AnimationController _animationController;
+  
+  // Track configuration status for each model
+  Map<AIModel, bool> _modelConfigStatus = {
+    AIModel.chatgpt: false,
+    AIModel.claude: false,
+    AIModel.gemini: false,
+  };
 
   final List<ChatSession> _recentChats = [
     ChatSession(
       id: '1',
       title: 'Flutter Development Help',
-      lastMessage: 'How do I implement Material 3 design?',
+      lastMessage: 'How do I implement Material 3 design in my Flutter app?',
       timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
       model: AIModel.chatgpt,
     ),
     ChatSession(
       id: '2',
       title: 'Code Review',
-      lastMessage: 'Can you review this Dart code?',
+      lastMessage: 'Can you review this Dart code for performance improvements?',
       timestamp: DateTime.now().subtract(const Duration(hours: 2)),
       model: AIModel.claude,
     ),
     ChatSession(
       id: '3',
       title: 'API Integration',
-      lastMessage: 'Best practices for REST APIs',
+      lastMessage: 'What are the best practices for implementing REST APIs?',
       timestamp: DateTime.now().subtract(const Duration(days: 1)),
       model: AIModel.gemini,
     ),
+    ChatSession(
+      id: '4',
+      title: 'State Management',
+      lastMessage: 'Comparing Provider vs Riverpod for state management',
+      timestamp: DateTime.now().subtract(const Duration(days: 2)),
+      model: AIModel.chatgpt,
+    ),
+    ChatSession(
+      id: '5',
+      title: 'Firebase Setup',
+      lastMessage: 'Help me configure Firebase Authentication in Flutter',
+      timestamp: DateTime.now().subtract(const Duration(days: 3)),
+      model: AIModel.gemini,
+    ),
+    ChatSession(
+      id: '6',
+      title: 'Widget Optimization',
+      lastMessage: 'How to optimize widget rebuilds in complex layouts?',
+      timestamp: DateTime.now().subtract(const Duration(days: 5)),
+      model: AIModel.claude,
+    ),
+    ChatSession(
+      id: '7',
+      title: 'Navigation Patterns',
+      lastMessage: 'Best practices for deep linking and navigation',
+      timestamp: DateTime.now().subtract(const Duration(days: 7)),
+      model: AIModel.chatgpt,
+    ),
+    ChatSession(
+      id: '8',
+      title: 'Testing Strategies',
+      lastMessage: 'Unit testing vs integration testing in Flutter',
+      timestamp: DateTime.now().subtract(const Duration(days: 10)),
+      model: AIModel.claude,
+    ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _loadConfigurationStatus();
+  }
+
+  Future<void> _loadConfigurationStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _modelConfigStatus = {
+        AIModel.chatgpt: prefs.getString('${AIModel.chatgpt.name}_api_key') != null,
+        AIModel.claude: prefs.getString('${AIModel.claude.name}_api_key') != null,
+        AIModel.gemini: prefs.getString('${AIModel.gemini.name}_api_key') != null,
+      };
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,9 +128,16 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildAppBar(context),
             Expanded(
-              child: _selectedIndex == 0
-                  ? _buildChatsView()
-                  : _buildModelsView(),
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() => _selectedIndex = index);
+                },
+                children: [
+                  _buildChatsView(),
+                  _buildModelsView(),
+                ],
+              ),
             ),
           ],
         ),
@@ -73,6 +154,11 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
         },
         destinations: const [
           NavigationDestination(
@@ -164,19 +250,19 @@ class _HomePageState extends State<HomePage> {
       children: [
         _ModelCard(
           model: AIModel.chatgpt,
-          isConfigured: true,
+          isConfigured: _modelConfigStatus[AIModel.chatgpt] ?? false,
           onTap: () => _showModelConfig(AIModel.chatgpt),
         ),
         const SizedBox(height: 12),
         _ModelCard(
           model: AIModel.claude,
-          isConfigured: true,
+          isConfigured: _modelConfigStatus[AIModel.claude] ?? false,
           onTap: () => _showModelConfig(AIModel.claude),
         ),
         const SizedBox(height: 12),
         _ModelCard(
           model: AIModel.gemini,
-          isConfigured: false,
+          isConfigured: _modelConfigStatus[AIModel.gemini] ?? false,
           onTap: () => _showModelConfig(AIModel.gemini),
         ),
       ],
@@ -229,11 +315,32 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 24),
-              _ModelSelectionTile(model: AIModel.chatgpt),
+              _ModelSelectionTile(
+                model: AIModel.chatgpt,
+                isConfigured: _modelConfigStatus[AIModel.chatgpt] ?? false,
+                onSetup: () {
+                  Navigator.pop(context);
+                  _showModelConfig(AIModel.chatgpt);
+                },
+              ),
               const SizedBox(height: 12),
-              _ModelSelectionTile(model: AIModel.claude),
+              _ModelSelectionTile(
+                model: AIModel.claude,
+                isConfigured: _modelConfigStatus[AIModel.claude] ?? false,
+                onSetup: () {
+                  Navigator.pop(context);
+                  _showModelConfig(AIModel.claude);
+                },
+              ),
               const SizedBox(height: 12),
-              _ModelSelectionTile(model: AIModel.gemini),
+              _ModelSelectionTile(
+                model: AIModel.gemini,
+                isConfigured: _modelConfigStatus[AIModel.gemini] ?? false,
+                onSetup: () {
+                  Navigator.pop(context);
+                  _showModelConfig(AIModel.gemini);
+                },
+              ),
               const SizedBox(height: 16),
             ],
           ),
@@ -242,11 +349,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showModelConfig(AIModel model) {
-    Navigator.push(
+  Future<void> _showModelConfig(AIModel model) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => ModelSetupPage(model: model)),
     );
+    // Reload configuration status after returning from setup page
+    _loadConfigurationStatus();
   }
 
 }
@@ -323,7 +432,7 @@ class _ChatCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
+                  color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -497,9 +606,15 @@ class _ModelCard extends StatelessWidget {
 }
 
 class _ModelSelectionTile extends StatelessWidget {
-  const _ModelSelectionTile({required this.model});
+  const _ModelSelectionTile({
+    required this.model,
+    required this.isConfigured,
+    required this.onSetup,
+  });
 
   final AIModel model;
+  final bool isConfigured;
+  final VoidCallback onSetup;
 
   @override
   Widget build(BuildContext context) {
@@ -514,16 +629,20 @@ class _ModelSelectionTile extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Starting chat with ${model.displayName}'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          if (isConfigured) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Starting chat with ${model.displayName}'),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-            ),
-          );
+            );
+          } else {
+            onSetup();
+          }
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -548,15 +667,22 @@ class _ModelSelectionTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      model.tagline,
+                      isConfigured ? model.tagline : 'Setup required',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                        color: isConfigured 
+                            ? colorScheme.onSurfaceVariant
+                            : colorScheme.error,
+                        fontWeight: isConfigured ? FontWeight.normal : FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_rounded, color: model.color, size: 24),
+              Icon(
+                isConfigured ? Icons.arrow_forward_rounded : Icons.settings_rounded,
+                color: model.color,
+                size: 24,
+              ),
             ],
           ),
         ),
